@@ -4,7 +4,6 @@
 ## Luis de la Rua - luisr@spc.int - October 2022
 
 # Libraries
-
 library(sf)
 library(sp)
 library(maptools)
@@ -29,11 +28,11 @@ dd <- paste0("C:/Users/luisr/SPC/SDD GIS - Documents/Pacific PopGrid/UPDATE_2022
 # Define Population Growth Rates parameters
 census_year <- 2020
 current_year <- 2022
-pop_2010 <- 55519
-prjpop_2020 <- 56818
+pop_2020 <- 119397  # calculated from latest census data
+prjpop_2022 <- 122735 # From SDD .STAT population projections
 
 # check if there is pgr defined in census report
-popGR <- (prjpop_2020 - pop_2010)/((current_year - census_year)*pop_2010)
+popGR <- (prjpop_2022 - pop_2020)/((current_year - census_year)*pop_2020)
 popGR
 
 # POULATION SPATIAL DISTRIBUTION INPUT
@@ -54,19 +53,19 @@ rast100m
 crs(rast100m) <- CRS("+init=epsg:3832")
 rast100m
 
-##RASTERIZE Check that pop field is integer
-rastpop2018_100m <- rasterize(pts,rast100m,'hhsize',fun=sum)
-rastpop2018_100m
-totpop2018_count <- cellStats(rastpop2018_100m, 'sum')
-totpop2018_count
+# RASTERIZE Check that pop field is integer
+rastpop2020_100m <- rasterize(pts,rast100m,'hhsize',fun=sum)
+rastpop2020_100m
+totpop2020_count <- cellStats(rastpop2020_100m, 'sum')
+totpop2020_count
 
 # optional draw histogram ignoring NA values
 # hist(na.omit(getValues(rastpop2018_100m)))
 
-writeRaster(rastpop2018_100m ,'raster/KIR_pop2018_100.tif', overwrite=TRUE)
+# writeRaster(rastpop2020_100m ,'raster/KIR_pop202.tif', overwrite=TRUE)
 
 #projecting population data up to current year
-pop_dif <- totpop2018_count*popGR * (as.numeric(current_year)- as.numeric(census_year))
+pop_dif <- totpop2020_count*popGR * (as.numeric(current_year)- as.numeric(census_year))
 pop_dif
 
 #project population on GPS location dataset
@@ -85,11 +84,11 @@ round_preserve_sum <- function(x, digits = 0) {
 }
 
 #create field with total population projected
-pts2020$totpop2020 <- (pts2020$HHsize + (pts2020$HHsize * popGR * (as.numeric(current_year)- as.numeric(census_year))))
+pts2020$totpop2022 <- (pts2020$hhsize + (pts2020$hhsize * popGR * (as.numeric(current_year)- as.numeric(census_year))))
 pts2020
 
-pts_totpop2020 <- sum (pts2020$totpop2020)
-pts_totpop2018 <- sum(pts2020$HHsize)
+pts_totpop2022 <- sum(pts2020$totpop2022,na.rm = T) #
+pts_totpop2020 <- sum(pts2020$hhsize,na.rm = T)
 
 pop_evolution <- pts_totpop2020 - pts_totpop2018
 pop_evolution
