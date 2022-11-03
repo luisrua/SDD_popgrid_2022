@@ -64,16 +64,16 @@ totpop2020_count
 
 # writeRaster(rastpop2020_100m ,'raster/KIR_pop202.tif', overwrite=TRUE)
 
-#projecting population data up to current year
+# projecting population data up to current year
 pop_dif <- totpop2020_count*popGR * (as.numeric(current_year)- as.numeric(census_year))
 pop_dif
 
-#project population on GPS location dataset
+# project population on GPS location dataset
 pts2020 <- pts
 pts2020
 
-##ROUND PRESERVE SUM projecting population over the point layer as source
-#define formula for the round preserving sum
+## ROUND PRESERVE SUM projecting population over the point layer as source
+# define formula for the round preserving sum
 round_preserve_sum <- function(x, digits = 0) {
   up <- 10 ^ digits
   x <- x * up
@@ -83,7 +83,7 @@ round_preserve_sum <- function(x, digits = 0) {
   y / up
 }
 
-#create field with total population projected
+# create field with total population projected
 pts2020$totpop2022 <- (pts2020$hhsize + (pts2020$hhsize * popGR * (as.numeric(current_year)- as.numeric(census_year))))
 pts2020
 
@@ -93,7 +93,7 @@ pts_totpop2020 <- sum(pts2020$hhsize,na.rm = T)
 pop_evolution <- pts_totpop2022 - pts_totpop2020
 pop_evolution
 
-#round and check to see if it works
+# round and check to see if it works
 round_preserve_sum(pts2020$totpop2020)
 
 pts_totpop2022_rps<- sum(round_preserve_sum(pts2020$totpop2022))
@@ -101,15 +101,15 @@ pts_totpop2022_rps
 dif <- pts_totpop2022_rps - pts_totpop2022
 dif
 
-#create the rounded field and add it into the att table
+# create the rounded field and add it into the att table
 pts2020$totpop2022rps <- round_preserve_sum(pts2020$totpop2022)
 pts2020
 
 sum(pts2020$totpop2022rps)
-#st_write(pts2020,"layers/pts2020.shp",delete_layer=TRUE)
+# st_write(pts2020,"layers/pts2020.shp",delete_layer=TRUE)
 
 rastpop2022rps_100m<- rasterize(pts2020,rast100m,'totpop2022rps',fun=sum)
 rastpop2022rps_100m
 cellStats(rastpop2022rps_100m, 'sum')
 
-writeRaster(rastpop2022rps_100m ,'raster/KIR_pop2022.tif.tif', overwrite=TRUE)
+writeRaster(rastpop2022rps_100m ,paste0(dd,"/raster/KIR_pop2022.tif"), overwrite=TRUE)
