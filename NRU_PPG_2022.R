@@ -46,7 +46,7 @@ zone <- st_read(paste0(dd,"/layers/zone.gpkg"))
 
 rast100m <- raster()
 extent(rast100m) <- extent(zone)
-res(rast100m) <- 100
+res(rast100m) <- 0.001
 rast100m
 
 # set 3832 projection
