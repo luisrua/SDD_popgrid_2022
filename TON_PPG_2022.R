@@ -112,4 +112,4 @@ rastpop2022rps_100m<- rasterize(pts2021,rast100m,'totpop2022rps',fun=sum)
 rastpop2022rps_100m
 cellStats(rastpop2022rps_100m, 'sum')
 
-writeRaster(rastpop2022rps_100m ,paste0(dd,"/raster/NRU_pop2022.tif"), overwrite=TRUE)
+writeRaster(rastpop2022rps_100m ,paste0(dd,"/raster/",country,"_pop2022.tif"), overwrite=TRUE)
