@@ -1,4 +1,4 @@
-# POPULATION GRID Wallis and Futuna - WLF - 2022 UPDATE
+# POPULATION GRID Wallis and Futuna - WLF - 2022 UPDATE -
 
 # Use of census data and country projections to generate 33m and 100m resolution population grids
 ## Luis de la Rua - luisr@spc.int - October 2022
