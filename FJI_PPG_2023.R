@@ -15,6 +15,7 @@ library(dplyr)
 library(rgdal)
 library(magrittr)
 library(terra) # using this library for spatial operations, libraries raster and rgdal will be deprecated in 2023
+library(tidyterra)
 
 # SET PARAMETERS
 ## working directory
@@ -52,3 +53,12 @@ ea <- vect(paste0(dd,"/layers/FJI_EA2017_PPGwork.gpkg"))
 bf <- vect(paste0(dd,"/layers/OSM/gis_osm_buildings_a_free_1.shp"))
 bf <- project(bf,fji_crs) #reproject to Fiji CRS
 bf_points <- centroids(bf,inside=T) # converting the layer into centroids
+
+## extract the EAs with huge difference between census hh counts and number of HH locations to know where the data gaps can be found
+eagap <- subset(ea,ea$diff > 0.5 | ea$diff < -0.5 )
+## extract the bf from the original dataset that are going to be used to fill the hh locations gaps
+bf_ingaps <- intersect(bf_points,eagap)
+nrow(bf_ingaps)
+
+
+
