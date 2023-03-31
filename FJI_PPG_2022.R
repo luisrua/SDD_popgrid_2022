@@ -16,7 +16,7 @@ library(magrittr)
 library(terra)
 
 # SET PARAMETERS
-## working directory
+## working directory 
 wd <- "C:/git/spc/popgrid_2022"
 setwd(wd)
 
