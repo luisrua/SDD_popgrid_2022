@@ -60,5 +60,31 @@ eagap <- subset(ea,ea$diff > 0.5 | ea$diff < -0.5 )
 bf_ingaps <- intersect(bf_points,eagap)
 nrow(bf_ingaps)
 
+## Merge hh locations from census with the points from the building footprints that are going to give use info on where the settlements are
+hhloc_merged <- terra::union(hhloc,bf_ingaps) 
+nrow(hhloc_merged)
+hhloc_merged$val <- 1 #this is useful later to be able to count points in polygon
+
+## Count number of hhlocations 
+ea_simpl<-ea[,"ea2017"]
+ea_simp$count <- lengths(terra::intersect(ea_simpl,hhloc_merged))
 
 
+i <- intersect (ea_simpl,hhloc_merged) # run intersection
+
+
+
+hhcount <- as.data.frame(i) %>% 
+  group_by(ea2017) %>% 
+  count()
+
+
+# r <- relate(ea,hhloc_merged, relation='intersects')
+# a <- apply(r,1,function(i) sum(hhloc_merged$val[i]))
+# a
+
+View(as.data.frame(eacount))
+
+## Calculate Average HH size per EA (AHS)
+
+## Assign that AHS
