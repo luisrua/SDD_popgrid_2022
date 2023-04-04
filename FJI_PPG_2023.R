@@ -65,26 +65,31 @@ hhloc_merged <- terra::union(hhloc,bf_ingaps)
 nrow(hhloc_merged)
 hhloc_merged$val <- 1 #this is useful later to be able to count points in polygon
 
-## Count number of hhlocations 
-ea_simpl<-ea[,"ea2017"]
-ea_simp$count <- lengths(terra::intersect(ea_simpl,hhloc_merged))
+## Count number of hhlocations within each EA 
 
-
+ea_simpl<-ea[,"ea2017"] # simplify dataset
+# ea_simp$count <- lengths(terra::intersect(ea_simpl,hhloc_merged)) ### this does the points in polygon in one step but super slow for 170K points
 i <- intersect (ea_simpl,hhloc_merged) # run intersection
+isimp <- i[,"ea2017"] # simplify result dataframe
 
-
-
-hhcount <- as.data.frame(i) %>% 
-  group_by(ea2017) %>% 
+## Tabulate to calculate the hhcounts by EA
+hhcount <- as.data.frame(isimp) %>% 
+  group_by(isimp$ea2017) %>% 
   count()
 
+## Connect hhcount table with ea layer
+ea <- merge(ea,hhcount,all.x=T, by.x='ea2017', by.y='isimp$ea2017')
 
-# r <- relate(ea,hhloc_merged, relation='intersects')
-# a <- apply(r,1,function(i) sum(hhloc_merged$val[i]))
-# a
+## Calculate Average HH size per EA (AHS) (and iterate over the different age groups? next iteration)
+ea$ahs <- ea$Total_Popu/ea$n
+head(ea)
+ea_ahs <-ea[,c("ea2017","ahs")]
+head(ea_ahs)
 
-View(as.data.frame(eacount))
-
-## Calculate Average HH size per EA (AHS)
+## Retrieve AHS from EA and include it into hhlocations merged as an attribute 
+hhloc_ahs <- intersect(i,ea_ahs)
+head(hhloc_ahs)
+hhloc_ahs <- hhloc_ahs[,c("ea2017","ahs")] # Clean unused fields from dataset
+sum(hhloc_ahs$ahs)
 
 ## Assign that AHS
