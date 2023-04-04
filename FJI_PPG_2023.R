@@ -118,8 +118,9 @@ ext(ras) <- ext(ea)  # set extent the same as the EA fwork
 res(ras) <- 100 # Resolution
 
 ## Rasterize the hh locations dataset using the projected population
-rastpopop2022 <- terra::rasterize(hhloc_ahs,ras,'pop2022rps',fun=sum)
+rastpop2022 <- terra::rasterize(hhloc_ahs,ras,'pop2022rps',fun=sum)
 
-totpop2022rps - (global(rastpopop2022, fun='sum',na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good
+totpop2022rps - (global(rastpop2022, fun='sum',na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good
 
-
+## Export Raster into tif format
+writeRaster(rastpop2022,paste0(dd,"/raster/",country,"_rastpop2022.tif"), overwrite=T)
