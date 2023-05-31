@@ -1,4 +1,4 @@
-# POPULATION GRID Fiji - FJI - 2023 UPDATE
+# POPULATION GRID Fiji - FJI - 2022 UPDATE
 
 # Use of census data and country projections to generate  100m resolution population grids
 ## Join work between FBOS and SDD ##

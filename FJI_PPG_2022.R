@@ -1,7 +1,8 @@
 # POPULATION GRID Fiji - FJI - 2022 UPDATE
 
-# Use of census data and country projections to generate 33m and 100m resolution population grids
-## Luis de la Rua - luisr@spc.int - October 2022
+# Use of census data and country projections to generate  100m resolution population grids
+## Join work between FBOS and SDD ##
+## We are reviewing the process including official data provided by FBOS ##
 
 # Libraries
 library(sf)
@@ -13,67 +14,31 @@ library(rgeos)
 library(dplyr)
 library(rgdal)
 library(magrittr)
-library(terra)
+library(terra) # using this library for spatial operations, libraries raster and rgdal will be deprecated in 2023
+library(tidyterra)
 
-# SET PARAMETERS
-## working directory 
+# SET PARAMETERS ----
+## working directory
 wd <- "C:/git/spc/popgrid_2022"
 setwd(wd)
 
 ## Country code to name output data and other files
 country <- 'FJI'
-# Data directory
+## Data directory
 dd <- paste0("C:/Users/luisr/SPC/SDD GIS - Documents/Pacific PopGrid/UPDATE_2022/",country)
 
-# Define Population Growth Rates parameters
+## Define Population Growth Rates parameters
 census_year <- 2017
 current_year <- 2022
 pop_2017 <- 884887  # calculated from latest census data
-prjpop_2022 <-  901603   # From SDD .STAT population projections
+prjpop_2022 <-  901603   # From SDD .STAT population projections - We need to update projections according to last work made by FBOS/SDD
+# https://pacificdata.org/data/dataset/population-projections-df-pop-proj
 
-# check if there is pgr defined in census report
+## calculate PGR
 popGR <- (prjpop_2022 - pop_2017)/((current_year - census_year)*pop_2017)
 popGR
 
-# POULATION SPATIAL DISTRIBUTION INPUT
-# HH locations and population from 2020 PHC
-pts <- st_read(paste0(dd,"/layers/FB_2007_combined_ahs2017_3832.gpkg"))
-
-# Bring Zone layer to avoid points excluded
-zone <- st_read(paste0(dd,"/layers/zone.gpkg"))
-
-# generate blank raster 100m
-
-rast100m <- raster()
-extent(rast100m) <- extent(zone)
-res(rast100m) <- 100 # Attention metric coordinate system
-rast100m
-
-# set 3832 projection
-crs(rast100m) <- CRS("+init=epsg:3832")
-rast100m
-
-# RASTERIZE Check that pop field is integer
-rastpop2017_100m <- rasterize(pts,rast100m,'ahs',fun=sum)
-rastpop2017_100m
-totpop2017_count <- cellStats(rastpop2017_100m, 'sum')
-totpop2017_count
-
-# optional draw histogram ignoring NA values
-# hist(na.omit(getValues(rastpop2020_100m)))
-
-# writeRaster(rastpop2020_100m ,'raster/KIR_pop202.tif', overwrite=TRUE)
-
-# projecting population data up to current year
-pop_dif <- totpop2017_count*popGR * (as.numeric(current_year)- as.numeric(census_year))
-pop_dif
-
-# project population on GPS location dataset
-pts2017 <- pts
-pts2017
-
-## ROUND PRESERVE SUM projecting population over the point layer as source
-# define formula for the round preserving sum
+## Define ROUND PRESERVE SUM function
 round_preserve_sum <- function(x, digits = 0) {
   up <- 10 ^ digits
   x <- x * up
@@ -83,34 +48,93 @@ round_preserve_sum <- function(x, digits = 0) {
   y / up
 }
 
-# create field with total population projected
-pts2017$pop <- pts2017$ahs
-pts2017$totpop2022 <- (pts2017$pop + (pts2017$pop * popGR * (as.numeric(current_year)- as.numeric(census_year))))
-pts2017
+# LOADING INPUT LAYERS ----
+## hh locations from census
+hhloc <- vect(paste0(dd,"/Population Grid Data/Fiji_HH_2017.shp"))
+crs(hhloc)
 
-pts_totpop2022 <- sum(pts2017$totpop2022,na.rm = T)
-pts_totpop2017 <- sum(pts2017$pop,na.rm = T)
+## We are making all the spatial analysis using Fiji Map Grid projection EPSG 3460, grabbing it from the first layer loaded
+fji_crs <- crs(hhloc)
 
-pop_evolution <- pts_totpop2022 - pts_totpop2017
-pop_evolution
+## EA boundaries layer including census population and hh counts
+ea <- vect(paste0(dd,"/layers/FJI_EA2017_PPGwork.gpkg"))
 
-# round and check to see if it works
-round_preserve_sum(pts2017$totpop2022)
+## OSM building footprints
+bf <- vect(paste0(dd,"/layers/OSM/gis_osm_buildings_a_free_1.shp"))
+bf <- project(bf,fji_crs) #reproject to Fiji CRS
+bf_points <- centroids(bf,inside=T) # converting the layer into centroids
 
-pts_totpop2022_rps<- sum(round_preserve_sum(pts2017$totpop2022))
-pts_totpop2022_rps
-dif <- pts_totpop2022_rps - pts_totpop2022
-dif
+## IDENTIFY EAs WITH HH LOCATIONS GAPS ----
+## extract the EAs with huge difference between census hh counts and number of HH locations to know where the data gaps can be found
+eagap <- subset(ea,ea$diff > 0.5 | ea$diff < -0.5 )
 
-# create the rounded field and add it into the att table
-pts2017$totpop2022rps <- round_preserve_sum(pts2017$totpop2022)
-pts2017
+## extract the bf from the original dataset that are going to be used to fill the hh locations gaps
+bf_ingaps <- intersect(bf_points,eagap)
+nrow(bf_ingaps)
 
-sum(pts2017$totpop2022rps)
-# st_write(pts2020,"layers/pts2020.shp",delete_layer=TRUE)
+## FILL THE GAPS WITH OSM BUILDING FOOTPRINTS AND CALCULATE AVERAGE HH SIZE PER EA ----
 
-rastpop2022rps_100m<- rasterize(pts2017,rast100m,'totpop2022rps',fun=sum)
-rastpop2022rps_100m
-cellStats(rastpop2022rps_100m, 'sum')
+## Merge hh locations from census with the points from the building footprints that are going to give use info on where the settlements are
+hhloc_merged <- terra::union(hhloc,bf_ingaps) 
+nrow(hhloc_merged)
+hhloc_merged$val <- 1 #this is useful later to be able to count points in polygon
 
-writeRaster(rastpop2022rps_100m ,paste0(dd,"/raster/",country,"_pop2022.tif"), overwrite=TRUE)
+## Count number of hhlocations within each EA 
+
+ea_simpl<-ea[,"ea2017"] # before we simplify dataset
+
+# ea_simp$count <- lengths(terra::intersect(ea_simpl,hhloc_merged)) ### this does the points in polygon in one step but super slow for 170K points
+i <- intersect (ea_simpl,hhloc_merged) # run intersection
+isimp <- i[,"ea2017"] # simplify result dataframe
+head(i)
+
+## Tabulate to calculate the hhcounts by EA
+hhcount <- as.data.frame(isimp) %>% 
+  group_by(isimp$ea2017) %>% 
+  count()
+
+## Connect hhcount table with ea layer
+ea <- merge(ea,hhcount,all.x=T, by.x='ea2017', by.y='isimp$ea2017')
+head(ea)
+
+## Calculate Average HH size per EA (AHS) (and iterate over the different age groups? next iteration)
+ea$avhhsize <- ea$Total_Popu/ea$n
+head(ea)
+ea_ahs <-ea[,c("ea2017","avhhsize")]
+head(ea_ahs)
+head(i)
+
+## WORK AT HH LEVEL, ALLOCATE AV HH SIZE AND PROJECT POPULATION ----
+
+## Retrieve AHS from EA and include it into hhlocations merged as an attribute 
+hhloc_ahs <- intersect(i,ea_ahs)
+head(hhloc_ahs)
+hhloc_ahs <- hhloc_ahs[,c("ea2017","avhhsize")] # Clean unused fields from dataset
+sum(hhloc_ahs$avhhsize) # check everything is adding ok
+
+## Project the population for each of the hh locations
+hhloc_ahs$pop2022 <- (hhloc_ahs$avhhsize + (hhloc_ahs$avhhsize * popGR * (as.numeric(current_year)- as.numeric(census_year))))
+totpop2022 <- sum(hhloc_ahs$pop2022)
+
+## Round to get integers
+hhloc_ahs$pop2022rps <- round_preserve_sum(hhloc_ahs$pop2022)
+head(hhloc_ahs)
+totpop2022rps <- sum(hhloc_ahs$pop2022rps)
+
+## GENERATE THE POPULATION GRID RASTER ----
+
+## Convert the Point layer into a 100x100m raster.
+## Create a blank raster first
+ras <- rast()
+crs(ras) <- fji_crs # CRS
+ext(ras) <- ext(ea)  # set extent the same as the EA fwork
+res(ras) <- 100 # Resolution
+
+## Rasterize the hh locations dataset using the projected population
+rastpop2022 <- terra::rasterize(hhloc_ahs,ras,'pop2022rps',fun=sum)
+
+totpop2022rps - (global(rastpop2022, fun='sum',na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good and means that the
+                                                         # rounding worked well 
+
+## Export Raster into tif format
+writeRaster(rastpop2022,paste0(dd,"/raster/",country,"_rastpop2022.tif"), overwrite=T)
