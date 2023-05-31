@@ -137,4 +137,4 @@ totpop2022rps - (global(rastpop2022, fun='sum',na.rm=T)) # checking that raster 
                                                          # rounding worked well 
 
 ## Export Raster into tif format
-writeRaster(rastpop2022,paste0(dd,"/raster/",country,"_rastpop2022.tif"), overwrite=T)
+writeRaster(rastpop2022,paste0(dd,"/raster/",country,"_rastpop2022_01.tif"), overwrite=T)
