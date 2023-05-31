@@ -17,7 +17,7 @@ library(magrittr)
 library(terra) # using this library for spatial operations, libraries raster and rgdal will be deprecated in 2023
 library(tidyterra)
 
-# SET PARAMETERS
+# SET PARAMETERS ----
 ## working directory
 wd <- "C:/git/spc/popgrid_2022"
 setwd(wd)
@@ -48,7 +48,7 @@ round_preserve_sum <- function(x, digits = 0) {
   y / up
 }
 
-# LOADING INPUT LAYERS
+# LOADING INPUT LAYERS ----
 ## hh locations from census
 hhloc <- vect(paste0(dd,"/Population Grid Data/Fiji_HH_2017.shp"))
 crs(hhloc)
@@ -64,12 +64,15 @@ bf <- vect(paste0(dd,"/layers/OSM/gis_osm_buildings_a_free_1.shp"))
 bf <- project(bf,fji_crs) #reproject to Fiji CRS
 bf_points <- centroids(bf,inside=T) # converting the layer into centroids
 
+## IDENTIFY EAs WITH HH LOCATIONS GAPS ----
 ## extract the EAs with huge difference between census hh counts and number of HH locations to know where the data gaps can be found
 eagap <- subset(ea,ea$diff > 0.5 | ea$diff < -0.5 )
 
 ## extract the bf from the original dataset that are going to be used to fill the hh locations gaps
 bf_ingaps <- intersect(bf_points,eagap)
 nrow(bf_ingaps)
+
+## FILL THE GAPS WITH OSM BUILDING FOOTPRINTS AND CALCULATE AVERAGE HH SIZE PER EA ----
 
 ## Merge hh locations from census with the points from the building footprints that are going to give use info on where the settlements are
 hhloc_merged <- terra::union(hhloc,bf_ingaps) 
@@ -79,9 +82,11 @@ hhloc_merged$val <- 1 #this is useful later to be able to count points in polygo
 ## Count number of hhlocations within each EA 
 
 ea_simpl<-ea[,"ea2017"] # before we simplify dataset
+
 # ea_simp$count <- lengths(terra::intersect(ea_simpl,hhloc_merged)) ### this does the points in polygon in one step but super slow for 170K points
 i <- intersect (ea_simpl,hhloc_merged) # run intersection
 isimp <- i[,"ea2017"] # simplify result dataframe
+head(i)
 
 ## Tabulate to calculate the hhcounts by EA
 hhcount <- as.data.frame(isimp) %>% 
@@ -90,27 +95,33 @@ hhcount <- as.data.frame(isimp) %>%
 
 ## Connect hhcount table with ea layer
 ea <- merge(ea,hhcount,all.x=T, by.x='ea2017', by.y='isimp$ea2017')
+head(ea)
 
 ## Calculate Average HH size per EA (AHS) (and iterate over the different age groups? next iteration)
-ea$ahs <- ea$Total_Popu/ea$n
+ea$avhhsize <- ea$Total_Popu/ea$n
 head(ea)
-ea_ahs <-ea[,c("ea2017","ahs")]
+ea_ahs <-ea[,c("ea2017","avhhsize")]
 head(ea_ahs)
+head(i)
+
+## WORK AT HH LEVEL, ALLOCATE AV HH SIZE AND PROJECT POPULATION ----
 
 ## Retrieve AHS from EA and include it into hhlocations merged as an attribute 
 hhloc_ahs <- intersect(i,ea_ahs)
 head(hhloc_ahs)
-hhloc_ahs <- hhloc_ahs[,c("ea2017","ahs")] # Clean unused fields from dataset
-sum(hhloc_ahs$ahs) # check everything is adding ok
+hhloc_ahs <- hhloc_ahs[,c("ea2017","avhhsize")] # Clean unused fields from dataset
+sum(hhloc_ahs$avhhsize) # check everything is adding ok
 
 ## Project the population for each of the hh locations
-hhloc_ahs$pop2022 <- (hhloc_ahs$ahs + (hhloc_ahs$ahs * popGR * (as.numeric(current_year)- as.numeric(census_year))))
+hhloc_ahs$pop2022 <- (hhloc_ahs$avhhsize + (hhloc_ahs$avhhsize * popGR * (as.numeric(current_year)- as.numeric(census_year))))
 totpop2022 <- sum(hhloc_ahs$pop2022)
 
 ## Round to get integers
 hhloc_ahs$pop2022rps <- round_preserve_sum(hhloc_ahs$pop2022)
 head(hhloc_ahs)
 totpop2022rps <- sum(hhloc_ahs$pop2022rps)
+
+## GENERATE THE POPULATION GRID RASTER ----
 
 ## Convert the Point layer into a 100x100m raster.
 ## Create a blank raster first
@@ -122,7 +133,8 @@ res(ras) <- 100 # Resolution
 ## Rasterize the hh locations dataset using the projected population
 rastpop2022 <- terra::rasterize(hhloc_ahs,ras,'pop2022rps',fun=sum)
 
-totpop2022rps - (global(rastpop2022, fun='sum',na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good
+totpop2022rps - (global(rastpop2022, fun='sum',na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good and means that the
+                                                         # rounding worked well 
 
 ## Export Raster into tif format
 writeRaster(rastpop2022,paste0(dd,"/raster/",country,"_rastpop2022.tif"), overwrite=T)
