@@ -1,6 +1,6 @@
 # POPULATION GRID Fiji - FJI - 2023 UPDATE
 
-# Use of census data and country projections to generate 33m and 100m resolution population grids
+# Use of census data and country projections to generate  100m resolution population grids
 ## Join work between FBOS and SDD ##
 ## We are reviewing the process including official data provided by FBOS ##
 
@@ -32,6 +32,7 @@ census_year <- 2017
 current_year <- 2022
 pop_2017 <- 884887  # calculated from latest census data
 prjpop_2022 <-  901603   # From SDD .STAT population projections - We need to update projections according to last work made by FBOS/SDD
+# https://pacificdata.org/data/dataset/population-projections-df-pop-proj
 
 ## calculate PGR
 popGR <- (prjpop_2022 - pop_2017)/((current_year - census_year)*pop_2017)
@@ -65,6 +66,7 @@ bf_points <- centroids(bf,inside=T) # converting the layer into centroids
 
 ## extract the EAs with huge difference between census hh counts and number of HH locations to know where the data gaps can be found
 eagap <- subset(ea,ea$diff > 0.5 | ea$diff < -0.5 )
+
 ## extract the bf from the original dataset that are going to be used to fill the hh locations gaps
 bf_ingaps <- intersect(bf_points,eagap)
 nrow(bf_ingaps)
