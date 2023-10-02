@@ -536,13 +536,11 @@ ext(ras) &lt;- ext(ea)  # set extent the same as the EA fwork
 res(ras) &lt;- 100 # Resolution
 
 rastpop2022 &lt;- terra::rasterize(hhloc_ahs,ras,&#39;pop2022rps&#39;,fun=sum)
-
-totpop2022rps - (global(rastpop2022, fun=&#39;sum&#39;,na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good and means that the</code></pre>
+# checking that raster includes same population as the original, if it 0 we are good and means that the rounding worked well 
+totpop2022rps - (global(rastpop2022, fun=&#39;sum&#39;,na.rm=T)) </code></pre>
 <pre><code>##     sum
 ## sum   0</code></pre>
-<pre class="r"><code>                                                         # rounding worked well 
-
-## Export Raster into tif format
+<pre class="r"><code>## Export Raster into tif format
 # writeRaster(rastpop2022,paste0(dd,&quot;/raster/&quot;,country,&quot;_rastpop2022_01.tif&quot;), overwrite=T)</code></pre>
 </div>
 </div>

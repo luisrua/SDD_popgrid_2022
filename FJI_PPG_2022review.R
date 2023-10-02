@@ -7,7 +7,6 @@
 # Libraries
 library(sf)
 library(sp)
-library(maptools)
 library(raster)
 library(spData)
 library(rgeos)
@@ -16,8 +15,10 @@ library(rgdal)
 library(magrittr)
 library(terra) # using this library for spatial operations, libraries raster and rgdal will be deprecated in 2023
 library(tidyterra)
+library(tmap)
+library(leaflet)
 
-# SET PARAMETERS ----
+# 1. SET PARAMETERS -----
 ## working directory
 wd <- "C:/git/spc/popgrid_2022"
 setwd(wd)
@@ -58,18 +59,26 @@ fji_crs <- crs(hhloc)
 
 ## EA boundaries layer including census population and hh counts
 ea <- vect(paste0(dd,"/layers/FJI_EA2017_PPGwork.gpkg"))
+plot(ea)
 
 ## OSM building footprints
 bf <- vect(paste0(dd,"/layers/OSM/gis_osm_buildings_a_free_1.shp"))
 bf <- project(bf,fji_crs) #reproject to Fiji CRS
 bf_points <- centroids(bf,inside=T) # converting the layer into centroids
 
+
 ## IDENTIFY EAs WITH HH LOCATIONS GAPS ----
-## extract the EAs with huge difference between census hh counts and number of HH locations to know where the data gaps can be found
+## Extract the EAs with huge difference between census hh counts and number of HH locations to know where the data gaps can be found
 eagap <- subset(ea,ea$diff > 0.5 | ea$diff < -0.5 )
 
-## extract the bf from the original dataset that are going to be used to fill the hh locations gaps
-bf_ingaps <- intersect(bf_points,eagap)
+# Visualize where are the EAs with data gaps
+plot(eagap, border='red')
+plot(ea)
+plot(eagap, border='red', add=T)
+
+## take building footprints that within the EAs with gaps
+bf_ingaps <- intersect(bf_points, eagap)
+nrow(bf_points)
 nrow(bf_ingaps)
 
 ## FILL THE GAPS WITH OSM BUILDING FOOTPRINTS AND CALCULATE AVERAGE HH SIZE PER EA ----
@@ -78,30 +87,27 @@ nrow(bf_ingaps)
 hhloc_merged <- terra::union(hhloc,bf_ingaps) 
 nrow(hhloc_merged)
 hhloc_merged$val <- 1 # this is useful later to be able to count points in polygon
+hhloc_merged <- hhloc_merged[,"val"] # simplify the layer
 head(hhloc_merged)
 
 ## Count number of hhlocations within each EA 
+ea_simpl <- ea[,"ea2017"] # before we simplify dataset
 
-ea_simpl<-ea[,"ea2017"] # before we simplify dataset
-
-# ea_simp$count <- lengths(terra::intersect(ea_simpl,hhloc_merged)) ### this does the points in polygon in one step but super slow for 170K points
-i <- intersect (ea_simpl,hhloc_merged) # run intersection
-isimp <- i[,"ea2017"] # simplify result dataframe
-head(isimp)
+i <- intersect (ea_simpl,hhloc_merged) # run intersection between EAs and hhloc so we have EA code in each hh point
 
 ## Tabulate to calculate the hhcounts by EA (collapse number of hh/EA)
-hhcount <- as.data.frame(isimp) %>% 
-  group_by(isimp$ea2017) %>% 
+hhcount <- as.data.frame(i) %>% 
+  group_by(i$ea2017) %>% 
   count()
 
 ## Connect hhcount table with ea layer
-ea <- merge(ea,hhcount,all.x=TRUE, by.x='ea2017', by.y='isimp$ea2017')
-names(ea)
+ea <- merge(ea,hhcount,all.x=TRUE, by.x='ea2017', by.y='i$ea2017')
+head(ea)
 
 ## Calculate Average HH size per EA (AHS) (and iterate over the different age groups? next iteration)
 ea$avhhsize <- ea$Total_Popu/ea$n
 head(ea)
-ea_ahs <-ea[,c("ea2017","avhhsize")]
+ea_ahs <-ea[,c("ea2017","avhhsize")] #Simplify layer
 head(ea_ahs)
 head(i)
 
@@ -136,7 +142,7 @@ res(ras) <- 100 # Resolution
 rastpop2022 <- terra::rasterize(hhloc_ahs,ras,'pop2022rps',fun=sum)
 
 totpop2022rps - (global(rastpop2022, fun='sum',na.rm=T)) # checking that raster includes same population as the original, if it 0 we are good and means that the
-                                                         # rounding worked well 
+# Result 0 then rounding worked well 
 
 ## Export Raster into tif format
 writeRaster(rastpop2022,paste0(dd,"/raster/",country,"_rastpop2022_01.tif"), overwrite=T)
