@@ -16,6 +16,7 @@ library(tidyterra)
 library(tmap)
 library(leaflet)
 library(exactextractr) # summary population by Province or Subdivision
+library(tictoc)
 
 # 1. SET PARAMETERS -----
 ## working directory
@@ -76,7 +77,9 @@ plot(ea)
 plot(eagap, border='red', add=T)
 
 ## take building footprints that within the EAs with gaps
+tic()
 bf_ingaps <- intersect(bf_points, eagap)
+toc()
 nrow(bf_points)
 nrow(bf_ingaps)
 
@@ -152,7 +155,7 @@ writeRaster(rastpop2022,"C:/gis/data/output/rastpop_2022.tif", overwrite=T)
 # Print the result
 
 hist_tab <- print(table(values(rastpop2022)))
-write.csv(hist_tab,paste0(dd,"/raster/",country,"_rastpop2022_01.csv"))
+write.csv(hist_tab,paste0(dd,"/raster/",country,"_rastpop2017_01.csv"))
 hist(rastpop2022)
 
 # Summary data
